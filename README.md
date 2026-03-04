@@ -1,0 +1,3 @@
+# Denzel
+
+JACK/Pipewire equalizer
