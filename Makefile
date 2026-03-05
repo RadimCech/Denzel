@@ -1,7 +1,11 @@
 CXX = g++
-CXXFLAGS = -Wall -Wextra
-LDFLAGS = -ljack -lm -lpthread
-JACK_LIB_PATH = /usr/lib/x86_64-linux-gnu/pipewire-0.3/jack
+CXXFLAGS = -Wall -Wextra -std=c++17
+LDFLAGS = -ljack -lm -lpthread -lrt
+
+FTXUI_DIR = ../FTXUI/build
+FTXUI_INC = -I$(FTXUI_DIR)/../include
+FTXUI_LIB = $(FTXUI_DIR)/libftxui-component.a $(FTXUI_DIR)/libftxui-dom.a $(FTXUI_DIR)/libftxui-screen.a
+
 TARGET = denzel
 SRC = main.cpp jackAPI.cpp
 
@@ -10,7 +14,10 @@ SRC = main.cpp jackAPI.cpp
 all: $(TARGET)
 
 $(TARGET): $(SRC:.cpp=.o)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) -L$(JACK_LIB_PATH) -Wl,-rpath,$(JACK_LIB_PATH)
+	$(CXX) $(CXXFLAGS) $(FTXUI_INC) -o $@ $^ $(FTXUI_LIB) $(LDFLAGS)
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(FTXUI_INC) -c $< -o $@
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) *.o

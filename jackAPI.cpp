@@ -1,5 +1,6 @@
 #include <jack/jack.h>
 #include <math.h>
+#include <cassert>
 #include <stdio.h>
 #include <stdlib.h>
 #include <atomic>
@@ -9,14 +10,10 @@ jack_client_t *client;
 jack_port_t *input_left, *input_right;
 jack_port_t *output_left, *output_right;
 
-// -------------------------------------------------------
-// THE CALLBACK — called by JACK in real-time for every
-// audio buffer (e.g. 512 samples at 48kHz = ~10ms)
-// -------------------------------------------------------
 int process(jack_nframes_t nframes, void *arg) {
     float *volume = static_cast<float *>(arg);
     float *in_l  = static_cast<float *>(jack_port_get_buffer(input_left,   nframes));
-    float *in_r  = static_cast<float *>(jack_port_get_buffer(input_right,  nframes));
+    float *in_r  = static_cast<float *>(jack_port_get_buffer(input_right, nframes));
     float *out_l = static_cast<float *>(jack_port_get_buffer(output_left,  nframes));
     float *out_r = static_cast<float *>(jack_port_get_buffer(output_right, nframes));
 
@@ -30,7 +27,7 @@ int process(jack_nframes_t nframes, void *arg) {
 
 void openJackClient(float *volume, std::atomic<bool> *running) {
     client = jack_client_open("Denzel-node", JackNullOption, NULL);
-    if (!client) { fprintf(stderr, "JACK server not running\n"); return; }
+    assert(client && "JACK server not running");
 
     jack_set_process_callback(client, process, volume);
 
@@ -40,8 +37,6 @@ void openJackClient(float *volume, std::atomic<bool> *running) {
     output_right = jack_port_register(client, "out_R", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
 
     jack_activate(client);
-
-    printf("Node running. Connect ports with 'jack_connect' or QjackCtl.\n");
 
     while (running->load()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
