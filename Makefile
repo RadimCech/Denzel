@@ -7,7 +7,7 @@ FTXUI_INC = -I$(FTXUI_DIR)/../include
 FTXUI_LIB = $(FTXUI_DIR)/libftxui-component.a $(FTXUI_DIR)/libftxui-dom.a $(FTXUI_DIR)/libftxui-screen.a
 
 TARGET = denzel
-SRC = main.cpp jackAPI.cpp
+SRC = main.cpp jackAPI.cpp biquad.cpp filterChain.cpp
 
 .PHONY: all clean
 

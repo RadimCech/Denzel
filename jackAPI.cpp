@@ -1,46 +1,62 @@
+#include "filterChain.h"
+#include <atomic>
+#include <cassert>
 #include <jack/jack.h>
 #include <math.h>
-#include <cassert>
 #include <stdio.h>
 #include <stdlib.h>
-#include <atomic>
 #include <thread>
 
 jack_client_t *client;
 jack_port_t *input_left, *input_right;
 jack_port_t *output_left, *output_right;
+FilterChain *filterChain;
 
 int process(jack_nframes_t nframes, void *arg) {
-    float *volume = static_cast<float *>(arg);
-    float *in_l  = static_cast<float *>(jack_port_get_buffer(input_left,   nframes));
-    float *in_r  = static_cast<float *>(jack_port_get_buffer(input_right, nframes));
-    float *out_l = static_cast<float *>(jack_port_get_buffer(output_left,  nframes));
-    float *out_r = static_cast<float *>(jack_port_get_buffer(output_right, nframes));
+  (void)arg;
 
-    for (jack_nframes_t i = 0; i < nframes; i++) {
-        out_l[i] = in_l[i] * *volume;
-        out_r[i] = in_r[i] * *volume;
-    }
+  float *in_l = static_cast<float *>(jack_port_get_buffer(input_left, nframes));
+  float *in_r =
+      static_cast<float *>(jack_port_get_buffer(input_right, nframes));
+  float *out_l =
+      static_cast<float *>(jack_port_get_buffer(output_left, nframes));
+  float *out_r =
+      static_cast<float *>(jack_port_get_buffer(output_right, nframes));
 
-    return 0;
+  for (jack_nframes_t i = 0; i < nframes; i++) {
+    out_l[i] = filterChain->process(in_l[i]);
+    out_r[i] = filterChain->process(in_r[i]);
+  }
+
+  return 0;
 }
 
-void openJackClient(float *volume, std::atomic<bool> *running) {
-    client = jack_client_open("Denzel-node", JackNullOption, NULL);
-    assert(client && "JACK server not running");
+void openJackClient(FilterChain *fc, std::atomic<bool> *running,
+                    std::atomic<float> *sampleRate) {
+  filterChain = fc;
 
-    jack_set_process_callback(client, process, volume);
+  client = jack_client_open("Denzel-node", JackNullOption, NULL);
+  assert(client && "JACK server not running");
 
-    input_left   = jack_port_register(client, "in_L",  JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput,  0);
-    input_right  = jack_port_register(client, "in_R",  JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput,  0);
-    output_left  = jack_port_register(client, "out_L", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-    output_right = jack_port_register(client, "out_R", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+  jack_set_process_callback(client, process, nullptr);
 
-    jack_activate(client);
+  input_left = jack_port_register(client, "in_L", JACK_DEFAULT_AUDIO_TYPE,
+                                  JackPortIsInput, 0);
+  input_right = jack_port_register(client, "in_R", JACK_DEFAULT_AUDIO_TYPE,
+                                   JackPortIsInput, 0);
+  output_left = jack_port_register(client, "out_L", JACK_DEFAULT_AUDIO_TYPE,
+                                   JackPortIsOutput, 0);
+  output_right = jack_port_register(client, "out_R", JACK_DEFAULT_AUDIO_TYPE,
+                                    JackPortIsOutput, 0);
 
-    while (running->load()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+  float sampleRateValue = static_cast<float>(jack_get_sample_rate(client));
+  sampleRate->store(sampleRateValue);
 
-    jack_client_close(client);
+  jack_activate(client);
+
+  while (running->load()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+
+  jack_client_close(client);
 }
