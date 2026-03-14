@@ -28,31 +28,25 @@ int main() {
   });
 
   auto ascii_art = ftxui::paragraph(R"(
-                                               
-         ,--.                                  
-       ,--.'|    ,---,.  ,----..   ,-.----.    
-   ,--,:  : |  ,'  .' | /   /   \  \    /  \   
-,`--.'`|  ' :,---.'   ||   :     : ;   :    \  
-|   :  :  | ||   |   .'.   |  ;. / |   | .\ :  
-:   |   \ | ::   :  |-,.   ; /--`  .   : |: |  
-|   : '  '; |:   |  ;/|;   | ;  __ |   |  \ :  
-'   ' ;.    ;|   :   .'|   : |.' .'|   : .  /  
-|   | | \   ||   |  |-,.   | '_.' :;   | |  \  
-'   : |  ; .''   :  ;/|'   ; : \  ||   | ;\  \ 
-|   | '`--'  |   |    \'   | '/  .':   ' | \.' 
-'   : |      |   :   .'|   :    /  :   : :-'   
-;   |.'      |   | ,'   \   \ .'   |   |.'     
-'---'        `----'      `---`     `---'       
+ _____                      __ 
+|      \____ ____ ____ ____|  |
+|  |   |  -_|    |-- _|  -_|  |
+|_____/|____|__|_|____|____|__|
  
-                                                              )") |
-                   ftxui::color(ftxui::Color::Red);
+
+                                )") |
+                   ftxui::color(ftxui::Color::LightSkyBlue1);
   ;
+
+  std::vector<std::string> slider_labels = {"31Hz",  "63Hz", "125Hz", "250Hz",
+                                            "500Hz", "1kHz", "2kHz",  "4kHz",
+                                            "8kHz",  "16kHz"};
 
   std::vector<std::tuple<std::string, float, float, float>> slider_options(
       NUM_SLIDERS);
 
   for (int i = 0; i < NUM_SLIDERS; ++i) {
-    slider_options[i] = std::make_tuple(std::string(""), -12.0f, 12.0f, 1.0f);
+    slider_options[i] = std::make_tuple(std::string(""), -12.0f, 12.0f, 2.0f);
   }
 
   auto updateFilters = [&]() {
@@ -61,7 +55,7 @@ int main() {
     }
   };
 
-  std::vector<ftxui::Component> slider_components;
+  std::vector<ftxui::Component> slider_containers;
   for (int i = 0; i < NUM_SLIDERS; ++i) {
     ftxui::SliderOption<float> option;
     option.value = &slider_values[i];
@@ -69,10 +63,23 @@ int main() {
     option.max = std::get<2>(slider_options[i]);
     option.increment = std::get<3>(slider_options[i]);
     option.on_change = updateFilters;
-    slider_components.push_back(ftxui::Slider(option));
+    option.color_active = ftxui::Color::LightSkyBlue1;
+    option.direction = ftxui::Direction::Up;
+
+    auto slider = ftxui::Slider(option) |
+                  ftxui::size(ftxui::HEIGHT, ftxui::GREATER_THAN, 10) |
+                  ftxui::size(ftxui::WIDTH, ftxui::GREATER_THAN, 4) |
+                  ftxui::border;
+
+    auto label = ftxui::Renderer([i, &slider_labels] {
+      return ftxui::text(slider_labels[i]) | ftxui::center;
+    });
+
+    auto container = ftxui::Container::Vertical({slider, label});
+    slider_containers.push_back(container);
   }
 
-  auto sliders = ftxui::Container::Vertical(slider_components);
+  auto sliders = ftxui::Container::Horizontal(slider_containers);
 
   auto component = ftxui::Container::Vertical({
       sliders,
@@ -81,7 +88,6 @@ int main() {
   auto renderer = ftxui::Renderer(component, [&] {
     auto content = ftxui::vbox({
         ascii_art,
-        ftxui::text("") | ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 2),
         sliders->Render(),
     });
 
