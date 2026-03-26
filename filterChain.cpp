@@ -5,6 +5,7 @@ FilterChain::FilterChain() {
     for (auto& filter : filters_) {
         filter.configure(44100.0f, 1000.0f, kQ_, 0.0f);
     }
+    scopeBuffer_.fill(0.0f);
 }
 
 void FilterChain::configure(float sampleRate, const std::vector<float>& gains) {
@@ -19,6 +20,10 @@ float FilterChain::process(float input) {
         output = filter.process(output);
     }
     return output;
+}
+
+void FilterChain::writeScopeSample(float sample) {
+    scopeBuffer_[writeIndex_.fetch_add(1, std::memory_order_relaxed) % kScopeBufferSize] = sample;
 }
 
 void FilterChain::reset() {

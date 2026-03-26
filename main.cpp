@@ -3,9 +3,11 @@
 #include <ftxui/component/app.hpp>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_options.hpp>
+#include <ftxui/component/loop.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/direction.hpp>
 #include <ftxui/dom/elements.hpp>
+#include <functional>
 #include <jack/jack.h>
 #include <math.h>
 #include <stdlib.h>
@@ -15,6 +17,37 @@
 
 void openJackClient(FilterChain *filterChain, std::atomic<bool> *running,
                     std::atomic<float> *sampleRate);
+
+class Graph {
+public:
+  Graph(FilterChain *fc) : filterChain(fc) {}
+
+  std::vector<int> operator()(int width, int height) const {
+    std::vector<int> output(width);
+
+    const float *buffer = filterChain->getScopeBuffer();
+    int writeIdx = filterChain->getScopeWriteIndex();
+
+    int startIdx = (writeIdx - width + FilterChain::kScopeBufferSize) %
+                   FilterChain::kScopeBufferSize;
+
+    for (int i = 0; i < width; ++i) {
+      int idx = (startIdx + i) % FilterChain::kScopeBufferSize;
+      float sample = buffer[idx];
+
+      float v = (sample * 0.5f + 0.5f) * height;
+      if (v < 0)
+        v = 0;
+      if (v >= height)
+        v = height - 1;
+      output[i] = static_cast<int>(v);
+    }
+    return output;
+  }
+
+private:
+  FilterChain *filterChain;
+};
 
 int main() {
   const int NUM_SLIDERS = 10;
@@ -28,8 +61,8 @@ int main() {
   });
 
   auto ascii_art = ftxui::paragraph(R"(
- _____                      __ 
-|      \____ ____ ____ ____|  |
+ ______                     __ 
+|      |____ ____ ____ ____|  |
 |  |   |  -_|    |-- _|  -_|  |
 |_____/|____|__|_|____|____|__|
  
@@ -81,21 +114,27 @@ int main() {
 
   auto sliders = ftxui::Container::Horizontal(slider_containers);
 
+  Graph graph_data(&filterChain);
+
   auto component = ftxui::Container::Vertical({
       sliders,
   });
 
+  auto screen = ftxui::ScreenInteractive::Fullscreen();
+
   auto renderer = ftxui::Renderer(component, [&] {
+    screen.RequestAnimationFrame();
     auto content = ftxui::vbox({
         ascii_art,
         sliders->Render(),
+        ftxui::graph(std::ref(graph_data)) |
+            ftxui::color(ftxui::Color::GrayLight) |
+            ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 8),
     });
 
     return ftxui::hcenter(content | ftxui::yflex |
                           ftxui::size(ftxui::WIDTH, ftxui::LESS_THAN, 80));
   });
-
-  auto screen = ftxui::ScreenInteractive::Fullscreen();
 
   screen.Loop(renderer);
 

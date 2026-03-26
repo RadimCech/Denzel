@@ -26,6 +26,9 @@ int process(jack_nframes_t nframes, void *arg) {
   for (jack_nframes_t i = 0; i < nframes; i++) {
     out_l[i] = filterChain->process(in_l[i]);
     out_r[i] = filterChain->process(in_r[i]);
+
+    float mono = (out_l[i] + out_r[i]) * 0.5f;
+    filterChain->writeScopeSample(mono);
   }
 
   return 0;
